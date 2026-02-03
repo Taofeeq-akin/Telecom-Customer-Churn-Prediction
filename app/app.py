@@ -12,12 +12,15 @@ st.set_page_config(
     layout="wide"
 )
 
+from pathlib import Path
+import streamlit as st
+import joblib
+
 # ---------------------------------
-# Base directories
+# Project folders (repo-relative)
 # ---------------------------------
-BASE_DIR = Path(__file__).resolve().parents[1]
-ARTIFACTS_DIR = BASE_DIR / "artifacts"
-BASE_DATA = BASE_DIR / "Data" / "raw"
+ARTIFACTS_DIR = Path("artifacts")
+BASE_DATA = Path("Data") / "raw"
 
 # ---------------------------------
 # Load assets (MODEL ONLY)
@@ -27,27 +30,29 @@ def load_assets():
     model_path = ARTIFACTS_DIR / "random_forest_model.pkl"
     threshold_path = ARTIFACTS_DIR / "random_forest_model_score.pkl"
 
-    if not model_path.exists():
-        st.error("❌ random_forest_model.pkl not found")
+    # ---- Model check ----
+    if not model_path.is_file():
+        st.error("❌ random_forest_model.pkl not found in artifacts/")
         st.stop()
 
     model = joblib.load(model_path)
 
-    # 🔑 THIS IS THE FIX: model schema
+    # ---- Feature schema check ----
     if not hasattr(model, "feature_names_in_"):
         st.error(
-            "❌ Model does not contain feature names. "
-            "It must be trained with a pandas DataFrame."
+            "❌ Model does not contain feature names.\n"
+            "It must be trained using a pandas DataFrame."
         )
         st.stop()
 
-    model_features = model.feature_names_in_
+    model_features = list(model.feature_names_in_)
 
-    threshold = (
-        joblib.load(threshold_path)
-        if threshold_path.exists()
-        else 0.5
-    )
+    # ---- Threshold (optional) ----
+    if threshold_path.is_file():
+        threshold = joblib.load(threshold_path)
+    else:
+        st.warning("⚠️ Threshold file not found. Using default threshold = 0.5")
+        threshold = 0.5
 
     return model, threshold, model_features
 
